@@ -4,6 +4,13 @@ from utils.feature_engineering import extract_features
 from utils.model_loader import load_model
 
 model = load_model()
+import tempfile
+
+def save_temp_video(uploaded_file):
+    suffix = "." + uploaded_file.name.split(".")[-1]
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+        temp_file.write(uploaded_file.read())
+        return temp_file.name
 uploaded_file = st.file_uploader("動画をアップロード", type=["mp4"])
 if uploaded_file:
     video_path = save_temp_video(uploaded_file)
@@ -12,3 +19,4 @@ if uploaded_file:
     prediction = model.predict(features)
 
     st.write(f"フォーム評価（最終フレーム）: {prediction[-1]}")
+
