@@ -1,22 +1,48 @@
 import streamlit as st
-from utils.pose_extractor import extract_pose
-from utils.feature_engineering import extract_features
-from utils.model_loader import load_model
+import numpy as np
+import joblib
+import matplotlib.pyplot as plt
+import os
 
-model = load_model()
-import tempfile
+st.set_page_config(page_title="スキー動作分類", layout="wide")
+st.title("🎿 スキー動作分類モデルの推論アプリ")
 
-def save_temp_video(uploaded_file):
-    suffix = "." + uploaded_file.name.split(".")[-1]
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
-        temp_file.write(uploaded_file.read())
-        return temp_file.name
-uploaded_file = st.file_uploader("動画をアップロード", type=["mp4"])
-if uploaded_file:
-    video_path = save_temp_video(uploaded_file)
-    pose_array = extract_pose(video_path)
-    features = extract_features(pose_array)
-    prediction = model.predict(features)
+# ファイルアップロード
+st.sidebar.header("📂 ファイルアップロード")
+model_file = st.sidebar.file_uploader("モデルファイル (.pkl)", type=["pkl"])
+features_file = st.sidebar.file_uploader("特徴量ファイル (.npy)", type=["npy"])
+encoder_file = st.sidebar.file_uploader("LabelEncoderファイル (.pkl)", type=["pkl"], help="任意")
 
-    st.write(f"フォーム評価（最終フレーム）: {prediction[-1]}")
+# 推論処理
+if model_file and features_file:
+    model = joblib.load(model_file)
+    features = np.load(features_file)
 
+    # 推論
+    predictions = model.predict(features)
+
+    # ラベル復元（任意）
+    if encoder_file:
+        le = joblib.load(encoder_file)
+        labels = le.inverse_transform(predictions)
+    else:
+        labels = predictions
+
+    st.success("✅ 推論が完了しました！")
+
+    # 表示：フレームごとのラベル
+    st.subheader("🧪 フレームごとの推論ラベル")
+    for i, label in enumerate(labels):
+        st.write(f"フレーム {i}: {label}")
+
+    # グラフ表示
+    st.subheader("📈 ラベルの時系列可視化")
+    fig, ax = plt.subplots(figsize=(12, 3))
+    ax.plot(labels, marker="o", linestyle="-", markersize=2)
+    ax.set_title("フレームごとの推論ラベル")
+    ax.set_xlabel("フレーム")
+    ax.set_ylabel("ラベル")
+    st.pyplot(fig)
+
+else:
+    st.info("左のサイドバーからモデルと特徴量ファイルをアップロードしてください。")
